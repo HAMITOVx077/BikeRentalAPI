@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using BikeRentalAPI.Models;
 using BikeRentalAPI.Repositories.Interfaces;
+using BikeRentalAPI.Repositories;
+using BikeRentalAPI.Services;
 using System.Text.Json.Serialization;
 using BikeRentalAPI.Repositories;
 
@@ -35,7 +37,18 @@ namespace BikeRentalAPI
             builder.Services.AddScoped<IRoleRepository, RoleRepository>();
             builder.Services.AddScoped<IRentalStatusRepository, RentalStatusRepository>();
 
+            // Register services
+            builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IBikeService, BikeService>();
+            builder.Services.AddScoped<IRentalService, RentalService>();
+
+            // AutoMapper
+            builder.Services.AddAutoMapper(typeof(Program));
+
             var app = builder.Build();
+
+            // Global exception handler
+            app.UseMiddleware<ExceptionMiddleware>();
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
@@ -45,9 +58,7 @@ namespace BikeRentalAPI
             }
 
             app.UseHttpsRedirection();
-
             app.UseAuthorization();
-
             app.MapControllers();
 
             app.Run();
