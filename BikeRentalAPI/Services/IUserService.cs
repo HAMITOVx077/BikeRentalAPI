@@ -1,4 +1,4 @@
-﻿using BikeRentalAPI.Models.DTO;
+﻿using BikeRentalAPI.Models;
 
 namespace BikeRentalAPI.Services
 {
@@ -7,22 +7,22 @@ namespace BikeRentalAPI.Services
         /// <summary>
         /// Получить всех пользователей
         /// </summary>
-        Task<IEnumerable<UserDTO>> GetAllUsersAsync();
+        Task<IEnumerable<User>> GetAllUsersAsync();
 
         /// <summary>
         /// Получить пользователя по ID
         /// </summary>
-        Task<UserDTO?> GetUserByIdAsync(int id);
+        Task<User?> GetUserByIdAsync(int id);
 
         /// <summary>
         /// Создать нового пользователя
         /// </summary>
-        Task<UserDTO> CreateUserAsync(CreateUserDTO createUserDto);
+        Task<User> CreateUserAsync(User user);
 
         /// <summary>
         /// Обновить данные пользователя
         /// </summary>
-        Task<UserDTO> UpdateUserAsync(int id, UpdateUserDTO updateUserDto);
+        Task<User> UpdateUserAsync(int id, User user);
 
         /// <summary>
         /// Удалить пользователя

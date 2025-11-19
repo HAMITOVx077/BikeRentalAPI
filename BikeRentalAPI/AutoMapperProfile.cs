@@ -10,18 +10,16 @@ namespace BikeRentalAPI.Profiles
         {
             // User mappings
             CreateMap<User, UserDTO>();
-            CreateMap<UserDTO, User>(); //если нужно обратное преобразование
+            CreateMap<CreateUserDTO, User>();
+            CreateMap<UpdateUserDTO, User>();
 
             // Bike mappings
             CreateMap<Bike, BikeDTO>();
-            CreateMap<BikeDTO, Bike>();
+            CreateMap<CreateBikeDTO, Bike>();
+            CreateMap<UpdateBikeDTO, Bike>();
 
             // Rental mappings  
             CreateMap<Rental, RentalDTO>();
-            CreateMap<RentalDTO, Rental>();
-
-            CreateMap<CreateBikeDTO, Bike>();
-            CreateMap<CreateUserDTO, User>();
             CreateMap<CreateRentalDTO, Rental>();
         }
     }

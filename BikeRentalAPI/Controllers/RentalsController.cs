@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using BikeRentalAPI.Services;
 using BikeRentalAPI.Models.DTO;
+using BikeRentalAPI.Models;
 using AutoMapper;
 
 namespace BikeRentalAPI.Controllers
@@ -25,7 +26,8 @@ namespace BikeRentalAPI.Controllers
         public async Task<ActionResult<IEnumerable<RentalDTO>>> GetRentals()
         {
             var rentals = await _rentalService.GetAllRentalsAsync();
-            return Ok(rentals);
+            var rentalDtos = _mapper.Map<IEnumerable<RentalDTO>>(rentals);
+            return Ok(rentalDtos);
         }
 
         /// <summary>
@@ -36,8 +38,16 @@ namespace BikeRentalAPI.Controllers
         {
             var rental = await _rentalService.GetRentalByIdAsync(id);
             if (rental == null)
-                return NotFound();
-            return Ok(rental);
+                return NotFound(new
+                {
+                    title = "Not Found",
+                    status = 404,
+                    detail = $"Аренда с ID {id} не найден.",
+                    instance = $"/api/rentals/{id}"
+                });
+
+            var rentalDto = _mapper.Map<RentalDTO>(rental);
+            return Ok(rentalDto);
         }
 
         /// <summary>
@@ -47,7 +57,8 @@ namespace BikeRentalAPI.Controllers
         public async Task<ActionResult<IEnumerable<RentalDTO>>> GetActiveRentals()
         {
             var rentals = await _rentalService.GetActiveRentalsAsync();
-            return Ok(rentals);
+            var rentalDtos = _mapper.Map<IEnumerable<RentalDTO>>(rentals);
+            return Ok(rentalDtos);
         }
 
         /// <summary>
@@ -57,7 +68,8 @@ namespace BikeRentalAPI.Controllers
         public async Task<ActionResult<IEnumerable<RentalDTO>>> GetUserRentals(int userId)
         {
             var rentals = await _rentalService.GetRentalsByUserIdAsync(userId);
-            return Ok(rentals);
+            var rentalDtos = _mapper.Map<IEnumerable<RentalDTO>>(rentals);
+            return Ok(rentalDtos);
         }
 
         /// <summary>
@@ -66,15 +78,11 @@ namespace BikeRentalAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<RentalDTO>> CreateRental(CreateRentalDTO createRentalDto)
         {
-            try
-            {
-                var rental = await _rentalService.CreateRentalAsync(createRentalDto);
-                return CreatedAtAction(nameof(GetRental), new { id = rental.Id }, rental);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            var rental = _mapper.Map<Rental>(createRentalDto);
+            var createdRental = await _rentalService.CreateRentalAsync(rental);
+            var rentalDto = _mapper.Map<RentalDTO>(createdRental);
+
+            return CreatedAtAction(nameof(GetRental), new { id = rentalDto.Id }, rentalDto);
         }
 
         /// <summary>
@@ -83,15 +91,8 @@ namespace BikeRentalAPI.Controllers
         [HttpPost("{id}/complete")]
         public async Task<ActionResult<decimal>> CompleteRental(int id)
         {
-            try
-            {
-                var totalPrice = await _rentalService.CompleteRentalAsync(id);
-                return Ok(new { TotalPrice = totalPrice });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            var totalPrice = await _rentalService.CompleteRentalAsync(id);
+            return Ok(new { TotalPrice = totalPrice });
         }
 
         /// <summary>
@@ -100,15 +101,47 @@ namespace BikeRentalAPI.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteRental(int id)
         {
-            try
+            //сначала получаем информацию об аренде
+            var rental = await _rentalService.GetRentalByIdAsync(id);
+            if (rental == null)
+                return NotFound(new
+                {
+                    title = "Not Found",
+                    status = 404,
+                    detail = $"Аренда с ID {id} не найден.",
+                    instance = $"/api/rentals/{id}"
+                });
+
+            //сохраняем информацию перед удалением
+            var deletedRentalInfo = new
             {
-                await _rentalService.DeleteRentalAsync(id);
-                return NoContent();
-            }
-            catch (Exception ex)
+                Id = rental.Id,
+                UserId = rental.UserId,
+                BikeId = rental.BikeId,
+                StartTime = rental.StartTime,
+                EndTime = rental.EndTime,
+                TotalCost = rental.TotalCost,
+                RentalStatusId = rental.RentalStatusId,
+                DeletedAt = DateTime.UtcNow
+            };
+
+            //удаляем аренду
+            var result = await _rentalService.DeleteRentalAsync(id);
+            if (!result)
+                return BadRequest(new
+                {
+                    title = "Bad Request",
+                    status = 400,
+                    detail = $"Не удалось удалить аренду с ID {id}",
+                    instance = $"/api/rentals/{id}"
+                });
+
+            //возвращаем информацию об удаленной аренде
+            return Ok(new
             {
-                return BadRequest(ex.Message);
-            }
+                message = "Аренда успешно удалена",
+                deletedRental = deletedRentalInfo
+            });
         }
     }
 }

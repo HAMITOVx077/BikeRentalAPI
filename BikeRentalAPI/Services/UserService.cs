@@ -1,6 +1,4 @@
-﻿using AutoMapper;
-using BikeRentalAPI.Models.DTO;
-using BikeRentalAPI.Models;
+﻿using BikeRentalAPI.Models;
 using BikeRentalAPI.Repositories.Interfaces;
 
 namespace BikeRentalAPI.Services
@@ -8,64 +6,44 @@ namespace BikeRentalAPI.Services
     public class UserService : IUserService
     {
         private readonly IUserRepository _userRepository;
-        private readonly IMapper _mapper;
 
-        public UserService(IUserRepository userRepository, IMapper mapper)
+        public UserService(IUserRepository userRepository)
         {
             _userRepository = userRepository;
-            _mapper = mapper;
         }
 
-        /// <summary>
-        /// Получить всех пользователей
-        /// </summary>
-        public async Task<IEnumerable<UserDTO>> GetAllUsersAsync()
+        public async Task<IEnumerable<User>> GetAllUsersAsync()
         {
-            var users = await _userRepository.GetAllAsync();
-            return _mapper.Map<IEnumerable<UserDTO>>(users);
+            return await _userRepository.GetAllAsync();
         }
 
-        /// <summary>
-        /// Получить пользователя по ID
-        /// </summary>
-        public async Task<UserDTO?> GetUserByIdAsync(int id)
+        public async Task<User?> GetUserByIdAsync(int id)
         {
-            var user = await _userRepository.GetByIdAsync(id);
-            return _mapper.Map<UserDTO>(user);
+            return await _userRepository.GetByIdAsync(id);
         }
 
-        /// <summary>
-        /// Создать нового пользователя
-        /// </summary>
-        public async Task<UserDTO> CreateUserAsync(CreateUserDTO createUserDto)
+        public async Task<User> CreateUserAsync(User user)
         {
-            var user = _mapper.Map<User>(createUserDto);
             user.CreatedAt = DateTime.UtcNow;
             user.IsActive = true;
-
-            var createdUser = await _userRepository.CreateAsync(user);
-            return _mapper.Map<UserDTO>(createdUser);
+            return await _userRepository.CreateAsync(user);
         }
 
-        /// <summary>
-        /// Обновить данные пользователя
-        /// </summary>
-        public async Task<UserDTO> UpdateUserAsync(int id, UpdateUserDTO updateUserDto)
+        public async Task<User> UpdateUserAsync(int id, User user)
         {
             var existingUser = await _userRepository.GetByIdAsync(id);
             if (existingUser == null)
-                return null;
+                throw new Exception($"Пользователь с ID {id} не найден");
 
-            _mapper.Map(updateUserDto, existingUser);
+            existingUser.Login = user.Login;
+            existingUser.Email = user.Email;
+            existingUser.PasswordHash = user.PasswordHash;
+            existingUser.RoleId = user.RoleId;
             existingUser.UpdatedAt = DateTime.UtcNow;
 
-            var updatedUser = await _userRepository.UpdateAsync(existingUser);
-            return _mapper.Map<UserDTO>(updatedUser);
+            return await _userRepository.UpdateAsync(existingUser);
         }
 
-        /// <summary>
-        /// Удалить пользователя
-        /// </summary>
         public async Task<bool> DeleteUserAsync(int id)
         {
             return await _userRepository.DeleteAsync(id);

@@ -1,8 +1,5 @@
-﻿using AutoMapper;
-using BikeRentalAPI.Models.DTO;
-using BikeRentalAPI.Models;
+﻿using BikeRentalAPI.Models;
 using BikeRentalAPI.Repositories.Interfaces;
-using BikeRentalAPI.Services;
 
 namespace BikeRentalAPI.Services
 {
@@ -11,91 +8,71 @@ namespace BikeRentalAPI.Services
         private readonly IRentalRepository _rentalRepository;
         private readonly IBikeRepository _bikeRepository;
         private readonly IUserRepository _userRepository;
-        private readonly IMapper _mapper;
+
+        //константы для статусов аренды
+        private const int ACTIVE_STATUS_ID = 1;
+        private const int COMPLETED_STATUS_ID = 2;
+        private const int CANCELLED_STATUS_ID = 3;
 
         public RentalService(
             IRentalRepository rentalRepository,
             IBikeRepository bikeRepository,
-            IUserRepository userRepository,
-            IMapper mapper)
+            IUserRepository userRepository)
         {
             _rentalRepository = rentalRepository;
             _bikeRepository = bikeRepository;
             _userRepository = userRepository;
-            _mapper = mapper;
         }
 
-        /// <summary>
-        /// Получить все аренды
-        /// </summary>
-        public async Task<IEnumerable<RentalDTO>> GetAllRentalsAsync()
+        public async Task<IEnumerable<Rental>> GetAllRentalsAsync()
         {
-            var rentals = await _rentalRepository.GetAllAsync();
-            return _mapper.Map<IEnumerable<RentalDTO>>(rentals);
+            return await _rentalRepository.GetAllAsync();
         }
 
-        /// <summary>
-        /// Получить аренду по ID
-        /// </summary>
-        public async Task<RentalDTO?> GetRentalByIdAsync(int id)
+        public async Task<Rental?> GetRentalByIdAsync(int id)
         {
-            var rental = await _rentalRepository.GetByIdAsync(id);
-            return _mapper.Map<RentalDTO?>(rental);
+            return await _rentalRepository.GetByIdAsync(id);
         }
 
-        /// <summary>
-        /// Получить активные аренды
-        /// </summary>
-        public async Task<IEnumerable<RentalDTO>> GetActiveRentalsAsync()
+        public async Task<IEnumerable<Rental>> GetActiveRentalsAsync()
         {
-            var rentals = await _rentalRepository.GetActiveRentalsAsync();
-            return _mapper.Map<IEnumerable<RentalDTO>>(rentals);
+            return await _rentalRepository.GetActiveRentalsAsync();
         }
 
-        /// <summary>
-        /// Получить аренды пользователя
-        /// </summary>
-        public async Task<IEnumerable<RentalDTO>> GetRentalsByUserIdAsync(int userId)
+        public async Task<IEnumerable<Rental>> GetRentalsByUserIdAsync(int userId)
         {
-            var rentals = await _rentalRepository.GetByUserIdAsync(userId);
-            return _mapper.Map<IEnumerable<RentalDTO>>(rentals);
+            return await _rentalRepository.GetByUserIdAsync(userId);
         }
 
-        /// <summary>
-        /// Создать новую аренду
-        /// </summary>
-        public async Task<RentalDTO> CreateRentalAsync(CreateRentalDTO createRentalDto)
+        public async Task<Rental> CreateRentalAsync(Rental rental)
         {
-            // Проверяем существование пользователя
-            var user = await _userRepository.GetByIdAsync(createRentalDto.UserId);
+            //проверяем существование пользователя
+            var user = await _userRepository.GetByIdAsync(rental.UserId);
             if (user == null)
                 throw new Exception("Пользователь не найден");
 
-            // Проверяем существование велосипеда и его доступность
-            var bike = await _bikeRepository.GetByIdAsync(createRentalDto.BikeId);
+            //проверяем существование велосипеда и его доступность
+            var bike = await _bikeRepository.GetByIdAsync(rental.BikeId);
             if (bike == null)
                 throw new Exception("Велосипед не найден");
 
             if (!bike.IsAvailable)
                 throw new Exception("Велосипед уже арендован");
 
-            // Создаем аренду
-            var rental = _mapper.Map<Rental>(createRentalDto);
+            //создаем аренду
             rental.StartTime = DateTime.UtcNow;
             rental.TotalCost = 0;
+            rental.RentalStatusId = ACTIVE_STATUS_ID; //устанавливаем статус "Активная"
 
             var createdRental = await _rentalRepository.CreateAsync(rental);
 
-            // Помечаем велосипед как занятый
+            //помечаем велосипед как занятый
             bike.IsAvailable = false;
             await _bikeRepository.UpdateAsync(bike);
 
-            return _mapper.Map<RentalDTO>(createdRental);
+            return createdRental;
         }
 
-        /// <summary>
-        /// Завершить аренду
-        /// </summary>
         public async Task<decimal> CompleteRentalAsync(int rentalId)
         {
             var rental = await _rentalRepository.GetByIdAsync(rentalId);
@@ -105,18 +82,21 @@ namespace BikeRentalAPI.Services
             if (rental.EndTime.HasValue)
                 throw new Exception("Аренда уже завершена");
 
-            // Устанавливаем время окончания
+            //устанавливаем время окончания
             rental.EndTime = DateTime.UtcNow;
 
-            // Рассчитываем стоимость
+            //рассчитываем стоимость
             var duration = rental.EndTime.Value - rental.StartTime;
             var bike = await _bikeRepository.GetByIdAsync(rental.BikeId);
 
-            // Расчет: цена в час * количество часов (округляем вверх)
+            //расчет: цена в час * количество часов
             var hours = (decimal)Math.Ceiling(duration.TotalHours);
             rental.TotalCost = hours * bike.PricePerHour;
 
-            // Освобождаем велосипед
+            //обновляем статус аренды на "Завершена"
+            rental.RentalStatusId = COMPLETED_STATUS_ID;
+
+            //освобождаем велосипед
             bike.IsAvailable = true;
             await _bikeRepository.UpdateAsync(bike);
 
@@ -124,16 +104,13 @@ namespace BikeRentalAPI.Services
             return rental.TotalCost;
         }
 
-        /// <summary>
-        /// Удалить аренду
-        /// </summary>
         public async Task<bool> DeleteRentalAsync(int id)
         {
             var rental = await _rentalRepository.GetByIdAsync(id);
             if (rental == null)
                 return false;
 
-            // Если аренда активна, освобождаем велосипед
+            //если аренда активна, освобождаем велосипед
             if (!rental.EndTime.HasValue)
             {
                 var bike = await _bikeRepository.GetByIdAsync(rental.BikeId);
