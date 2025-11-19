@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 using BikeRentalAPI.Services;
 using BikeRentalAPI.Models.DTO;
 using BikeRentalAPI.Models;
@@ -8,6 +10,7 @@ namespace BikeRentalAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "admin")] //по умолчанию все методы только для админов
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
@@ -23,6 +26,7 @@ namespace BikeRentalAPI.Controllers
         /// Получить всех пользователей
         /// </summary>
         [HttpGet]
+        [Authorize(Roles = "admin")] //только для админов
         public async Task<ActionResult<IEnumerable<UserDTO>>> GetUsers()
         {
             var users = await _userService.GetAllUsersAsync();
@@ -34,6 +38,7 @@ namespace BikeRentalAPI.Controllers
         /// Получить пользователя по ID
         /// </summary>
         [HttpGet("{id}")]
+        [Authorize(Roles = "admin")] //только для админов
         public async Task<ActionResult<UserDTO>> GetUser(int id)
         {
             var user = await _userService.GetUserByIdAsync(id);
@@ -51,9 +56,27 @@ namespace BikeRentalAPI.Controllers
         }
 
         /// <summary>
+        /// Получить информацию о текущем пользователе
+        /// </summary>
+        [HttpGet("me")]
+        [Authorize(Roles = "admin,user")] //для всех авторизованных
+        public async Task<ActionResult<UserDTO>> GetCurrentUser()
+        {
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+            var user = await _userService.GetUserByIdAsync(currentUserId);
+
+            if (user == null)
+                return NotFound();
+
+            var userDto = _mapper.Map<UserDTO>(user);
+            return Ok(userDto);
+        }
+
+        /// <summary>
         /// Создать нового пользователя
         /// </summary>
         [HttpPost]
+        [AllowAnonymous] //регистрация доступна без авторизации
         public async Task<ActionResult<UserDTO>> CreateUser(CreateUserDTO createUserDto)
         {
             var user = _mapper.Map<User>(createUserDto);
@@ -67,6 +90,7 @@ namespace BikeRentalAPI.Controllers
         /// Обновить пользователя
         /// </summary>
         [HttpPut("{id}")]
+        [Authorize(Roles = "admin")] //только для админов
         public async Task<ActionResult<UserDTO>> UpdateUser(int id, UpdateUserDTO updateUserDto)
         {
             var user = _mapper.Map<User>(updateUserDto);
@@ -89,6 +113,7 @@ namespace BikeRentalAPI.Controllers
         /// Удалить пользователя
         /// </summary>
         [HttpDelete("{id}")]
+        [Authorize(Roles = "admin")] //только для админов
         public async Task<ActionResult> DeleteUser(int id)
         {
             //сначала получаем информацию о пользователе

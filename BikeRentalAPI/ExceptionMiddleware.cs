@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Text.Json;
+using Microsoft.IdentityModel.Tokens;
 
 namespace BikeRentalAPI
 {
@@ -30,12 +31,32 @@ namespace BikeRentalAPI
         private async Task HandleExceptionAsync(HttpContext context, Exception exception)
         {
             context.Response.ContentType = "application/json";
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+
+            var statusCode = HttpStatusCode.InternalServerError;
+            var message = "Внутренняя ошибка сервера";
+
+            switch (exception)
+            {
+                case UnauthorizedAccessException:
+                    statusCode = HttpStatusCode.Unauthorized;
+                    message = "Unauthorized access";
+                    break;
+                case SecurityTokenException:
+                    statusCode = HttpStatusCode.Unauthorized;
+                    message = "Invalid token";
+                    break;
+                case ArgumentException:
+                    statusCode = HttpStatusCode.BadRequest;
+                    message = exception.Message;
+                    break;
+            }
+
+            context.Response.StatusCode = (int)statusCode;
 
             var response = new
             {
                 StatusCode = context.Response.StatusCode,
-                Message = "Внутренняя ошибка сервера"
+                Message = message
             };
 
             var json = JsonSerializer.Serialize(response);

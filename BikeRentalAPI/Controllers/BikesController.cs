@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using BikeRentalAPI.Services;
 using BikeRentalAPI.Models.DTO;
 using BikeRentalAPI.Models;
@@ -8,6 +9,7 @@ namespace BikeRentalAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class BikesController : ControllerBase
     {
         private readonly IBikeService _bikeService;
@@ -23,6 +25,7 @@ namespace BikeRentalAPI.Controllers
         /// Получить все велосипеды
         /// </summary>
         [HttpGet]
+        [AllowAnonymous] //доступно без авторизации
         public async Task<ActionResult<IEnumerable<BikeDTO>>> GetBikes()
         {
             var bikes = await _bikeService.GetAllBikesAsync();
@@ -34,6 +37,7 @@ namespace BikeRentalAPI.Controllers
         /// Получить велосипед по ID
         /// </summary>
         [HttpGet("{id}")]
+        [AllowAnonymous] //доступно без авторизации
         public async Task<ActionResult<BikeDTO>> GetBike(int id)
         {
             var bike = await _bikeService.GetBikeByIdAsync(id);
@@ -54,6 +58,7 @@ namespace BikeRentalAPI.Controllers
         /// Получить доступные велосипеды
         /// </summary>
         [HttpGet("available")]
+        [AllowAnonymous] //доступно без авторизации
         public async Task<ActionResult<IEnumerable<BikeDTO>>> GetAvailableBikes()
         {
             var bikes = await _bikeService.GetAvailableBikesAsync();
@@ -65,6 +70,7 @@ namespace BikeRentalAPI.Controllers
         /// Создать новый велосипед
         /// </summary>
         [HttpPost]
+        [Authorize(Roles = "admin")] //только для админов
         public async Task<ActionResult<BikeDTO>> CreateBike(CreateBikeDTO createBikeDto)
         {
             var bike = _mapper.Map<Bike>(createBikeDto);
@@ -78,6 +84,7 @@ namespace BikeRentalAPI.Controllers
         /// Обновить велосипед
         /// </summary>
         [HttpPut("{id}")]
+        [Authorize(Roles = "admin")] //только для админов
         public async Task<ActionResult<BikeDTO>> UpdateBike(int id, UpdateBikeDTO updateBikeDto)
         {
             var bike = _mapper.Map<Bike>(updateBikeDto);
@@ -100,6 +107,7 @@ namespace BikeRentalAPI.Controllers
         /// Удалить велосипед
         /// </summary>
         [HttpDelete("{id}")]
+        [Authorize(Roles = "admin")] //только для админов
         public async Task<ActionResult> DeleteBike(int id)
         {
             //сначала получаем информацию о велосипеде

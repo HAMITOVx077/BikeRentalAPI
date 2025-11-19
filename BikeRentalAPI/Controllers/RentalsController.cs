@@ -1,13 +1,16 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using BikeRentalAPI.Services;
 using BikeRentalAPI.Models.DTO;
 using BikeRentalAPI.Models;
 using AutoMapper;
+using System.Security.Claims;
 
 namespace BikeRentalAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize] //все методы требуют авторизации по умолчанию
     public class RentalsController : ControllerBase
     {
         private readonly IRentalService _rentalService;
@@ -23,6 +26,7 @@ namespace BikeRentalAPI.Controllers
         /// Получить все аренды
         /// </summary>
         [HttpGet]
+        [Authorize(Roles = "admin")] //только для админов
         public async Task<ActionResult<IEnumerable<RentalDTO>>> GetRentals()
         {
             var rentals = await _rentalService.GetAllRentalsAsync();
@@ -34,6 +38,7 @@ namespace BikeRentalAPI.Controllers
         /// Получить аренду по ID
         /// </summary>
         [HttpGet("{id}")]
+        [Authorize(Roles = "admin,user")] //для админов и пользователей
         public async Task<ActionResult<RentalDTO>> GetRental(int id)
         {
             var rental = await _rentalService.GetRentalByIdAsync(id);
@@ -46,6 +51,13 @@ namespace BikeRentalAPI.Controllers
                     instance = $"/api/rentals/{id}"
                 });
 
+            //проверяем, что пользователь имеет доступ к этой аренде
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+            var currentUserRole = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (currentUserRole != "admin" && rental.UserId != currentUserId)
+                return Forbid();
+
             var rentalDto = _mapper.Map<RentalDTO>(rental);
             return Ok(rentalDto);
         }
@@ -54,6 +66,7 @@ namespace BikeRentalAPI.Controllers
         /// Получить активные аренды
         /// </summary>
         [HttpGet("active")]
+        [Authorize(Roles = "admin")] //только для админов
         public async Task<ActionResult<IEnumerable<RentalDTO>>> GetActiveRentals()
         {
             var rentals = await _rentalService.GetActiveRentalsAsync();
@@ -65,8 +78,16 @@ namespace BikeRentalAPI.Controllers
         /// Получить аренды пользователя
         /// </summary>
         [HttpGet("user/{userId}")]
+        [Authorize(Roles = "admin,user")] //для админов и пользователей
         public async Task<ActionResult<IEnumerable<RentalDTO>>> GetUserRentals(int userId)
         {
+            //проверяем, что пользователь имеет доступ к этим арендам
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+            var currentUserRole = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (currentUserRole != "admin" && userId != currentUserId)
+                return Forbid();
+
             var rentals = await _rentalService.GetRentalsByUserIdAsync(userId);
             var rentalDtos = _mapper.Map<IEnumerable<RentalDTO>>(rentals);
             return Ok(rentalDtos);
@@ -76,8 +97,16 @@ namespace BikeRentalAPI.Controllers
         /// Начать аренду велосипеда
         /// </summary>
         [HttpPost]
+        [Authorize(Roles = "admin,user")] //для админов и пользователей
         public async Task<ActionResult<RentalDTO>> CreateRental(CreateRentalDTO createRentalDto)
         {
+            //если пользователь не админ, он может арендовать только для себя
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+            var currentUserRole = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (currentUserRole != "admin" && createRentalDto.UserId != currentUserId)
+                return Forbid();
+
             var rental = _mapper.Map<Rental>(createRentalDto);
             var createdRental = await _rentalService.CreateRentalAsync(rental);
             var rentalDto = _mapper.Map<RentalDTO>(createdRental);
@@ -89,8 +118,20 @@ namespace BikeRentalAPI.Controllers
         /// Завершить аренду и получить стоимость
         /// </summary>
         [HttpPost("{id}/complete")]
+        [Authorize(Roles = "admin,user")] //для админов и пользователей
         public async Task<ActionResult<decimal>> CompleteRental(int id)
         {
+            var rental = await _rentalService.GetRentalByIdAsync(id);
+            if (rental == null)
+                return NotFound();
+
+            //проверяем, что пользователь имеет доступ к этой аренде
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value);
+            var currentUserRole = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (currentUserRole != "admin" && rental.UserId != currentUserId)
+                return Forbid();
+
             var totalPrice = await _rentalService.CompleteRentalAsync(id);
             return Ok(new { TotalPrice = totalPrice });
         }
@@ -99,6 +140,7 @@ namespace BikeRentalAPI.Controllers
         /// Удалить аренду
         /// </summary>
         [HttpDelete("{id}")]
+        [Authorize(Roles = "admin")] //только для админов
         public async Task<ActionResult> DeleteRental(int id)
         {
             //сначала получаем информацию об аренде
