@@ -38,12 +38,12 @@ namespace BikeRentalAPI
             switch (exception)
             {
                 case UnauthorizedAccessException:
-                    statusCode = HttpStatusCode.Unauthorized;
-                    message = "Unauthorized access";
+                    statusCode = HttpStatusCode.Forbidden;
+                    message = "Недостаточно прав для доступа к ресурсу";
                     break;
                 case SecurityTokenException:
                     statusCode = HttpStatusCode.Unauthorized;
-                    message = "Invalid token";
+                    message = "Неверный токен";
                     break;
                 case ArgumentException:
                     statusCode = HttpStatusCode.BadRequest;
@@ -55,8 +55,10 @@ namespace BikeRentalAPI
 
             var response = new
             {
-                StatusCode = context.Response.StatusCode,
-                Message = message
+                title = statusCode.ToString(),
+                status = context.Response.StatusCode,
+                detail = message,
+                instance = context.Request.Path
             };
 
             var json = JsonSerializer.Serialize(response);

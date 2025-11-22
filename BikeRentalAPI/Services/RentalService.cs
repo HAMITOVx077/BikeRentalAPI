@@ -70,7 +70,8 @@ namespace BikeRentalAPI.Services
             bike.IsAvailable = false;
             await _bikeRepository.UpdateAsync(bike);
 
-            return createdRental;
+            //загружаем аренду с включенными связанными данными
+            return await _rentalRepository.GetByIdAsync(createdRental.Id) ?? createdRental;
         }
 
         public async Task<decimal> CompleteRentalAsync(int rentalId)
@@ -101,7 +102,10 @@ namespace BikeRentalAPI.Services
             await _bikeRepository.UpdateAsync(bike);
 
             await _rentalRepository.UpdateAsync(rental);
-            return rental.TotalCost;
+
+            //загружаем обновленную аренду с включенными данными
+            var updatedRental = await _rentalRepository.GetByIdAsync(rental.Id);
+            return updatedRental?.TotalCost ?? rental.TotalCost;
         }
 
         public async Task<bool> DeleteRentalAsync(int id)

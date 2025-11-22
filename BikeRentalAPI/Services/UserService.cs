@@ -26,7 +26,11 @@ namespace BikeRentalAPI.Services
         {
             user.CreatedAt = DateTime.UtcNow;
             user.IsActive = true;
-            return await _userRepository.CreateAsync(user);
+
+            var createdUser = await _userRepository.CreateAsync(user);
+
+            //загружаем пользователя с включенной ролью
+            return await _userRepository.GetByIdAsync(createdUser.Id) ?? createdUser;
         }
 
         public async Task<User> UpdateUserAsync(int id, User user)
@@ -41,7 +45,10 @@ namespace BikeRentalAPI.Services
             existingUser.RoleId = user.RoleId;
             existingUser.UpdatedAt = DateTime.UtcNow;
 
-            return await _userRepository.UpdateAsync(existingUser);
+            var updatedUser = await _userRepository.UpdateAsync(existingUser);
+
+            //загружаем пользователя с включенной ролью
+            return await _userRepository.GetByIdAsync(updatedUser.Id) ?? updatedUser;
         }
 
         public async Task<bool> DeleteUserAsync(int id)
